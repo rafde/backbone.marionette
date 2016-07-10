@@ -615,11 +615,12 @@ describe('collection view', function() {
 
       this.beforeRenderSpy = this.sinon.spy(this.collectionView, 'onBeforeRenderEmpty');
       this.renderSpy = this.sinon.spy(this.collectionView, 'onRenderEmpty');
+      this._removeChildViewsSpy = this.sinon.spy(this.collectionView, '_removeChildViews');
 
       this.sinon.spy(this.childView, 'destroy');
       this.sinon.spy(this.EmptyView.prototype, 'render');
 
-      this.collectionView._onCollectionRemove(this.model);
+      this.collectionView._removeChildViews([this.model]);
     });
 
     it('should destroy the models view', function() {
@@ -636,6 +637,11 @@ describe('collection view', function() {
 
     it('should call "onRenderEmpty"', function() {
       expect(this.renderSpy).to.have.been.called;
+    });
+
+    it('should call "_removeChildViews"', function() {
+      expect(this._removeChildViewsSpy).to.have.been.called
+                                        .and.to.have.been.calledWith([this.model]);
     });
   });
 
@@ -728,7 +734,6 @@ describe('collection view', function() {
       this.collectionView.listenTo(this.collectionView, 'item:foo', this.collectionView.someViewCallback);
 
       this.sinon.spy(this.childView, 'destroy');
-      this.sinon.spy(this.collectionView, '_onCollectionRemove');
       this.sinon.spy(this.collectionView, 'stopListening');
       this.sinon.spy(this.collectionView, '_removeElement');
       this.sinon.spy(this.collectionView, 'someCallback');
@@ -862,16 +867,16 @@ describe('collection view', function() {
       this.childView = this.collectionView.children.findByIndex(0);
       this.sinon.spy(this.childView, 'remove');
 
-      this.sinon.spy(this.collectionView, 'removeChildView');
-      this.collectionView.removeChildView(this.childView);
+      this.sinon.spy(this.collectionView, '_removeChildViews');
+      this.collectionView._removeChildViews([this.childView]);
     });
 
     it('should call the "remove" method', function() {
       expect(this.childView.remove).to.have.been.called;
     });
 
-    it('should return the childView', function() {
-      expect(this.collectionView.removeChildView).to.have.returned(this.childView);
+    it('should return the childView in an array', function() {
+      expect(this.collectionView._removeChildViews).to.have.returned([this.childView]);
     });
   });
 
@@ -911,16 +916,22 @@ describe('collection view', function() {
     });
 
     describe('with the checkEmpty flag set as false', function() {
-      it('should not call checkEmpty', function() {
+      it('should not call _checkEmpty', function() {
         this.collectionView._destroyChildren({checkEmpty: false});
         expect(this.collectionView._checkEmpty).to.have.been.calledOnce;
       });
     });
 
     describe('with the checkEmpty flag set as true', function() {
-      it('should call checkEmpty', function() {
+      it('should call _checkEmpty', function() {
+        this.collectionView.collection.add({id: 3});
         this.collectionView._destroyChildren({checkEmpty: true});
         expect(this.collectionView._checkEmpty).to.have.been.calledTwice;
+      });
+
+      it('should not call _checkEmpty when collection is empty', function() {
+        this.collectionView._destroyChildren({checkEmpty: true});
+        expect(this.collectionView._checkEmpty).to.have.been.calledOnce;
       });
     });
   });
