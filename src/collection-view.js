@@ -126,12 +126,97 @@ const CollectionView = Backbone.View.extend({
   },
 
   // Handle collection update model removals
-  _onCollectionUpdate(collection, {changes: {removed = []} = {}} = {}) {
+  _onCollectionUpdate(collection, {changes: {removed = [], added = []} = {}}) {
     if (_.isArray(removed) && removed.length) {
       this._removeChildViews(removed);
     }
-  },
 
+    if (_.isArray(added) && added.length) {
+      this._addChildViews(added);
+    }
+  },
+  _addChildViews(models) {
+    if (!models.length) {
+      return models;
+    }
+
+    const addedViews = _.reduce(models, (addingViews, model) => {
+
+      if (!model) {
+        return addingViews;
+      }
+
+      const index = this.collection.indexOf(model);
+
+      if (index < 0 || !this._shouldAddChild(model, index)) {
+        return addingViews;
+      }
+
+      if (this._showingEmptyView) {
+        this._destroyEmptyView();
+      }
+
+      let view = this._getBuiltView(model, index);
+
+      this.triggerMethod('before:add:child', this, view);
+
+      this._renderView(view);
+
+      if (this._isAttached) {
+        triggerMethodOn(view, 'before:attach', view);
+      }
+      // need to figure out a way to smart add the view into the DOM in bulk
+      // in order
+
+      // Attach view
+      // this.attachHtml(this, view, index);
+
+      // if (shouldTriggerAttach) {
+      //   view._isAttached = true;
+      //   triggerMethodOn(view, 'attach', view);
+      // }
+      // this.triggerMethod('add:child', this, view);
+      return addingViews;
+    }, []);
+
+    if (!addedViews.length) {
+      return addedViews;
+    }
+
+    this.children._updateLength();
+    // decrement the index of views after this one
+    //this._updateIndices(addedViews[0], true, index);
+
+    return addedViews;
+  },
+  _getBuiltView(model, index) {
+    const ChildView = this._getChildView(model);
+    const childViewOptions = this._getChildViewOptions(model, index);
+    const view = this.buildChildView(model, ChildView, childViewOptions);
+    view._parent = this;
+
+    monitorViewEvents(view);
+
+    // set up the child view event forwarding
+    this._proxyChildEvents(view);
+
+    return view;
+  },
+  _renderView(view) {
+    if (!view.supportsRenderLifecycle) {
+      triggerMethodOn(view, 'before:render', view);
+    }
+
+    // Render view
+    view.render();
+
+    if (!view.supportsRenderLifecycle) {
+      view._isRendered = true;
+      triggerMethodOn(view, 'render', view);
+    }
+
+    return view;
+  },
   // Remove the child views and destroy them.
   // This function also updates the indices of later views
   // in the collection in order to keep the children in sync with the collection.
