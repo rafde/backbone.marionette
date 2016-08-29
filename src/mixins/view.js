@@ -205,7 +205,7 @@ const ViewMixin = {
   triggerMethod() {
     const ret = triggerMethod.apply(this, arguments);
 
-    this._triggerEventOnBehaviors(arguments);
+    this._triggerEventOnBehaviors.apply(this, arguments);
     this._triggerEventOnParentLayout.apply(this, arguments);
 
     return ret;
