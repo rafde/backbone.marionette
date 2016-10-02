@@ -37,6 +37,9 @@ describe('collection/composite view sorting', function() {
       this.sinon.spy(this.collectionView, 'resortView');
       this.sinon.spy(this.compositeView, 'resortView');
 
+      this.sinon.spy(this.collectionView.children, 'each');
+      this.sinon.spy(this.compositeView.children, 'each');
+
       this.collectionView.render();
       this.compositeView.render();
     });
@@ -54,6 +57,78 @@ describe('collection/composite view sorting', function() {
       it('should have the order in the dom', function() {
         expect(this.collectionView.$el).to.have.$text('1234');
         expect(this.compositeView.$el).to.have.$text('1234');
+      });
+
+      it('should have updated indices', function() {
+        expect(this.collectionView.children.each).to.have.called;
+        expect(this.compositeView.children.each).to.have.called;
+      });
+    });
+
+    describe('when adding multiple models', function() {
+      beforeEach(function() {
+        this.sinon.spy(this.collectionView, 'render');
+        this.sinon.spy(this.compositeView, 'render');
+        this.collection.add([
+          new Backbone.Model({foo: 5, bar: 0}),
+          new Backbone.Model({foo: 4, bar: 1})
+        ]);
+      });
+
+      it('should have the order in the dom', function() {
+        expect(this.collectionView.$el).to.have.$text('12345');
+        expect(this.compositeView.$el).to.have.$text('12345');
+      });
+
+      it('should not require additional render', function() {
+        expect(this.collectionView.render.callCount).to.equal(0);
+        expect(this.compositeView.render.callCount).to.equal(0);
+      });
+    });
+
+    describe('when adding multiple models through CollectionView events', function() {
+      beforeEach(function() {
+        this.text = '-101234';
+        var model1 = new Backbone.Model({foo: 0, bar: 5});
+        var model2 = new Backbone.Model({foo: 4, bar: 1});
+        var model3 = new Backbone.Model({foo: -1, bar: 6});
+
+        this.collectionView.once('childview:before:render', function() {
+          this.collection.add(model2);
+        });
+
+        this.collectionView.once('childview:render', function() {
+          this.collection.add(model3);
+        });
+
+        this.collection.add(model1);
+      });
+
+      it('should render the models in order', function() {
+        expect(this.collectionView.$el).to.have.$text(this.text);
+      });
+    });
+
+    describe('when adding multiple models through CompositeView events', function() {
+      beforeEach(function() {
+        this.text = '-101234';
+        var model1 = new Backbone.Model({foo: 0, bar: 5});
+        var model2 = new Backbone.Model({foo: 4, bar: 1});
+        var model3 = new Backbone.Model({foo: -1, bar: 6});
+
+        this.compositeView.once('childview:before:render', function() {
+          this.collection.add(model2);
+        });
+
+        this.compositeView.once('childview:render', function() {
+          this.collection.add(model3);
+        });
+
+        this.collection.add(model1);
+      });
+
+      it('should render the models in order', function() {
+        expect(this.compositeView.$el).to.have.$text(this.text);
       });
     });
 
@@ -391,6 +466,8 @@ describe('collection/composite view sorting', function() {
       beforeEach(function() {
         this.model = new Backbone.Model({foo: '0', bar: '5'});
         this.collection.add(this.model);
+        this.sinon.spy(this.collectionView.children, 'each');
+        this.sinon.spy(this.compositeView.children, 'each');
       });
 
       it('should add the model to the list', function() {
@@ -400,6 +477,11 @@ describe('collection/composite view sorting', function() {
       it('should have the order in the dom', function() {
         expect(this.collectionView.$el).to.have.$text('1230');
         expect(this.compositeView.$el).to.have.$text('1230');
+      });
+
+      it('should not have updated indices', function() {
+        expect(this.collectionView.children.each).to.not.have.called;
+        expect(this.compositeView.children.each).to.not.have.called;
       });
     });
   });

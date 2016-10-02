@@ -466,6 +466,33 @@ describe('collection view', function() {
     it('should trigger the childview:render event from the collectionView', function() {
       expect(this.childViewRender).to.have.been.called;
     });
+
+    describe('and events are used to add more models', function() {
+
+      beforeEach(function() {
+        var model1 = new Backbone.Model({foo: 'foo'});
+        var model2 = new Backbone.Model({foo: 'baz'});
+        var model3 = new Backbone.Model({foo: 'qux'});
+
+        this.collectionView.once('childview:before:render', function() {
+          this.collection.add(model2);
+        });
+
+        this.collectionView.once('childview:render', function() {
+          this.collection.add(model3);
+        });
+
+        this.collection.add(model1);
+      });
+
+      it('should add the model to the list', function() {
+        expect(this.collectionView.children).to.have.lengthOf(4);
+      });
+
+      it('should render the model in to the DOM', function() {
+        expect($(this.collectionView.$el)).to.contain.$text('barfoobazqux');
+      });
+    });
   });
 
   describe('when a model is added to a non-empty collection', function() {
@@ -610,25 +637,6 @@ describe('collection view', function() {
       it('should render all views in comparator order after filter is removed', function() {
         expect(this.orderWithoutFilter).to.deep.equal(['1', '2', '3', '4', '5', '6', '10']);
       });
-    });
-  });
-
-  describe('when firing an `add` event on the collection with `at` but without `index`, BB < 1.2 style', function() {
-    beforeEach(function() {
-      this.collection = new Backbone.Collection([{foo: 1}, {foo: 3}]);
-      this.collectionView = new this.CollectionView({
-        collection: this.collection
-      });
-      this.collectionView.render();
-
-      this.collection.add({foo: 2}, {at: 1, silent: true});
-      var model = this.collection.at(1);
-      this.collection.trigger('add', model, this.collection, {at: 1});
-      this.order = _.map(this.collectionView.$el.find('span'), 'innerHTML').join('');
-    });
-
-    it('should render views in `at` order', function() {
-      expect(this.order).to.equal('123');
     });
   });
 
@@ -1282,7 +1290,7 @@ describe('collection view', function() {
         this.sinon.spy(this.collectionView, 'addChildView');
         this.model3 = new Backbone.Model({foo: 3});
         this.collection.add(this.model3);
-        this.childView3 = this.collectionView.children.findByIndex(2);
+        this.childView3 = this.collectionView.children.findByModel(this.model3);
       });
 
       it('should not use the render buffer', function() {
@@ -1315,6 +1323,33 @@ describe('collection view', function() {
 
       it('should be inserted in the DOM before later indexed children', function() {
         expect(this.collectionView.$el).to.have.$text('012');
+      });
+    });
+
+    describe('and events are used to add more models', function() {
+
+      beforeEach(function() {
+        var model1 = new Backbone.Model({foo: '3'});
+        var model2 = new Backbone.Model({foo: '4'});
+        var model3 = new Backbone.Model({foo: '5'});
+
+        this.collectionView.once('childview:before:attach', function() {
+          this.collection.add(model2);
+        });
+
+        this.collectionView.once('childview:attach', function() {
+          this.collection.add(model3);
+        });
+
+        this.collection.add(model1);
+      });
+
+      it('should add the model to the list', function() {
+        expect(this.collectionView.children).to.have.lengthOf(5);
+      });
+
+      it('should render the model in to the DOM', function() {
+        expect($(this.collectionView.$el)).to.contain.$text('12345');
       });
     });
   });
