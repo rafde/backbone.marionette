@@ -160,16 +160,25 @@ const CollectionView = Backbone.View.extend({
   _addChildModels(models) {
     let buffer = document.createDocumentFragment();
     let triggerOnChildren = [];
+    const addedViews = [];
 
     this._startUpdating();
-    const addedViews = _.reduce(models, (adding, model, index) =>{
+
+    for (let index = 0, modelLength = models.length; index < modelLength; ++index) {
+
+      let model = models[index];
       let view = this.children.findByModel(model);
 
       if (!view) {
         this._destroyEmptyView();
 
         view = this._addChild(model, index);
-        adding.push(view);
+
+        if (!this._isUpdating) {
+          return [];
+        }
+
+        addedViews.push(view);
         triggerOnChildren.push(view);
         buffer.appendChild(view.el);
       } else if (buffer.children.length) {
@@ -181,7 +190,11 @@ const CollectionView = Backbone.View.extend({
           triggerMethodOn(child, 'before:attach', child);
         });
 
-        view.$el.before(buffer);
+        if (!this._isUpdating) {
+          return [];
+        }
+
+        this._beforeEl(view.$el, buffer);
 
         _.each(triggerOnChildren, child => {
           child._isAttached = true;
@@ -190,15 +203,20 @@ const CollectionView = Backbone.View.extend({
 
         triggerOnChildren = [];
       }
+    }
 
-      return adding;
-    }, []);
+    if (!this._isUpdating) {
+      return [];
+    }
 
     if (triggerOnChildren.length) {
-
       _.each(triggerOnChildren, child => {
         triggerMethodOn(child, 'before:attach', child);
       });
+
+      if (!this._isUpdating) {
+        return [];
+      }
 
       this._appendEl(this.getChildViewContainer(this), buffer);
 
@@ -207,10 +225,12 @@ const CollectionView = Backbone.View.extend({
         triggerMethodOn(child, 'attach', child);
       });
     }
-    this._endUpdating();
+
     if (addedViews.length) {
       this.children._updateLength();
     }
+
+    this._endUpdating();
   },
 
   // Returns the views that will be used for re-indexing
@@ -784,6 +804,10 @@ const CollectionView = Backbone.View.extend({
 
   _appendEl(el, children) {
     Backbone.$(el).append(children);
+  },
+
+  _beforeEl(sibling, children) {
+    Backbone.$(sibling).before(children);
   },
 
   // Internal method. Append a view to the end of the $el
