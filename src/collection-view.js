@@ -159,8 +159,9 @@ const CollectionView = Backbone.View.extend({
 
   _addChildModels(models) {
     let buffer = document.createDocumentFragment();
-    let triggerOnChildren = [];
-    const addedViews = [];
+    let addedViews = [];
+    const bufferMap = {};
+    const beforeViewList = [];
 
     this._startUpdating();
 
@@ -169,68 +170,73 @@ const CollectionView = Backbone.View.extend({
       let model = models[index];
       let view = this.children.findByModel(model);
 
+      // find out what views haven't been created
+      // and assume those will be added to the DOM
       if (!view) {
         this._destroyEmptyView();
-
         view = this._addChild(model, index);
-
+        // If an event led here again, it likely finished
+        // and did not require this work to continue.
         if (!this._isUpdating) {
           return [];
         }
 
         addedViews.push(view);
-        triggerOnChildren.push(view);
         buffer.appendChild(view.el);
-      } else if (buffer.children.length) {
-        if (this.sort) {
-          view._index = index;
-        }
+        continue;
+      }
 
-        _.each(triggerOnChildren, child => {
-          triggerMethodOn(child, 'before:attach', child);
-        });
+      if (this.sort) {
+        view._index = index;
+      }
 
-        if (!this._isUpdating) {
-          return [];
-        }
+      // Only keep track of views that are attached
+      // and assume that does views will get new views attached before them
+      if (buffer.children.length) {
+        bufferMap[view.cid] = buffer;
+        beforeViewList.push(view);
 
-        this._beforeEl(view.$el, buffer);
-
-        _.each(triggerOnChildren, child => {
-          child._isAttached = true;
-          triggerMethodOn(child, 'attach', child);
-        });
-
-        triggerOnChildren = [];
+        buffer = document.createDocumentFragment();
       }
     }
 
-    if (!this._isUpdating) {
-      return [];
+    if (!addedViews.length) {
+      return addedViews;
     }
 
-    if (triggerOnChildren.length) {
-      _.each(triggerOnChildren, child => {
-        triggerMethodOn(child, 'before:attach', child);
-      });
+    for (let index = 0, viewLength = addedViews.length; index < viewLength; ++index) {
+      let view = addedViews[index];
+      triggerMethodOn(view, 'before:attach', view);
 
       if (!this._isUpdating) {
         return [];
       }
-
-      this._appendEl(this.getChildViewContainer(this), buffer);
-
-      _.each(triggerOnChildren, child => {
-        child._isAttached = true;
-        triggerMethodOn(child, 'attach', child);
-      });
     }
 
-    if (addedViews.length) {
-      this.children._updateLength();
+    for (let index = 0, viewLength = beforeViewList.length; index < viewLength; ++index) {
+      let view = beforeViewList[index];
+      let bufferList = bufferMap[view.cid];
+      this._beforeEl(view.$el, bufferList);
     }
 
+    if (buffer.children.length) {
+      this._appendEl(this.$el, buffer);
+    }
+
+    for (let index = 0, viewLength = addedViews.length; index < viewLength; ++index) {
+      let view = addedViews[index];
+      view._isAttached = true;
+      triggerMethodOn(view, 'attach', view);
+
+      if (!this._isUpdating) {
+        return [];
+      }
+    }
+
+    this.children._updateLength();
     this._endUpdating();
+
+    return addedViews;
   },
 
   // Returns the views that will be used for re-indexing
